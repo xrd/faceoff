@@ -1,23 +1,57 @@
 <script>
-  import { onMount } from "svelte";
-  export let name;
-  import * as faceapi from "face-api.js";
+  import {
+    Button,
+    Col,
+    Row,
+    Container,
+    Form,
+    FormGroup,
+    FormText,
+    Input,
+    Label,
+  } from 'sveltestrap';
+  import { onMount } from 'svelte';
+  import * as faceapi from 'face-api.js';
 
   let img;
   let canvas;
+  let files;
 
   const imgHeight = 400;
   const imgWidth = 600;
 
-  const getRect = d => {
+  const getRect = (d) => {
     return d.relativeBox;
   };
 
+  const download = () => {
+    const link = document.createElement('a');
+    link.download = 'family.png';
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
   let faces;
+  let file;
+
+  const load = (fs) => {
+    if (fs) {
+      console.log('Filename', fs[0].name);
+      file = fs[0];
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  $: load(files);
+  $: detect(img);
 
   function imagedata_to_image(imagedata) {
-    var canvas = document.createElement("canvas");
-    var ctx = canvas.getContext("2d");
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
     canvas.width = imagedata.width;
     canvas.height = imagedata.height;
     ctx.putImageData(imagedata, 0, 0);
@@ -26,40 +60,43 @@
     return canvas.toDataURL();
   }
 
-  const detect = () => {
-    faceapi.detectAllFaces(img).then(_detections => {
-      // setProcessingState(PROCESSED);
-      // setupFaces(_detections.length);
-      // console.log("Images: ", img);
-      console.log("Detected: ", _detections);
-      //setDetections(_detections);
+  const detect = (i) => {
+    if (i) {
+      const ctx = canvas.getContext('2d');
+      faceapi.detectAllFaces(img).then((_detections) => {
+        console.log('Detected: ', _detections);
+        ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+        ctx.fillStyle = 'red';
+        ctx.font = '20px Arial';
+        ctx.fillText('cleaned w/faceoffUS.com', 24, 24);
+        faces = [];
+        _detections.forEach((d) => {
+          const { x, y, width, height } = getRect(d);
 
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
-      ctx.fillStyle = "black";
-      faces = [];
+          const rX = x * imgWidth,
+            rY = y * imgHeight,
+            rW = width * imgWidth,
+            rH = height * imgHeight;
 
-      _detections.forEach(d => {
-        const { x, y, width, height } = getRect(d);
+          // Get out the image chunk
+          const chunk = ctx.getImageData(rX, rY, rW, rH);
+          faces.push(imagedata_to_image(chunk));
 
-        const rX = x * imgWidth,
-          rY = y * imgHeight,
-          rW = width * imgWidth,
-          rH = height * imgHeight;
-
-        // Get out the image chunk
-        const chunk = ctx.getImageData(rX, rY, rW, rH);
-        faces.push(imagedata_to_image(chunk));
-
-        ctx.fillRect(rX, rY, rW, rH);
+          const radiusH = rH / 2;
+          const radiusW = rW / 2;
+          ctx.beginPath();
+          ctx.arc(rX + radiusW, rY + radiusH, radiusH, 0, 2 * Math.PI);
+          ctx.stroke();
+          ctx.fill();
+        });
       });
-    });
+    }
   };
 
   onMount(() => {
     console.log(console.log(faceapi.nets));
     console.log(faceapi.nets);
-    faceapi.nets.ssdMobilenetv1.loadFromUri("/weights");
+    faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
   });
 </script>
 
@@ -72,16 +109,60 @@
     width: 100%;
     visibility: hidden;
   }
+
+  .avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+  }
 </style>
 
-<canvas width="600" height="400" bind:this={canvas} />
+<svelte:head>
+  <link
+    rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+</svelte:head>
 
-<button on:click={detect}>Detect</button>
+<Container>
+  <Row>
+    <Col>
+      <canvas width="600" height="400" bind:this={canvas} />
+    </Col>
+  </Row>
 
-{#if faces}
-  {#each faces as face}
-    <img src={face} />
-  {/each}
-{/if}
+  <Row>
+    <Col>
+      <Button color="primary" outline on:click={() => detect(file)}>
+        Detect
+      </Button>
+      <Button color="primary" outline on:click={download}>Download</Button>
+    </Col>
+    <Col>
+      {#if faces}
+        {#each faces as face}
+          <img alt="face" class="avatar" src={face} />
+        {/each}
+      {/if}
 
-<img class="img" src="hawaii.png" alt="picture" bind:this={img} />
+    </Col>
+  </Row>
+
+  <Row>
+    <Col>
+      <FormGroup>
+        <Input bind:files type="file" name="file" id="exampleFile" />
+        <FormText color="muted">
+          Choose a file for processing. This file is NOT sent to any other
+          server; it never leaves your browser.
+        </FormText>
+      </FormGroup>
+    </Col>
+    <!-- <Col>
+      {#if files && files[0]}
+        <p>{files[0].name}</p>
+      {/if}
+    </Col> -->
+  </Row>
+</Container>
+
+<img class="img" alt="picture" bind:this={img} />

@@ -5,6 +5,10 @@ const mode = process.env.NODE_ENV || 'development';
 const prod = mode === 'production';
 
 module.exports = {
+    devServer: {
+	host: '0.0.0.0'
+    },
+	
 	entry: {
 		bundle: ['./src/main.js']
 	},
