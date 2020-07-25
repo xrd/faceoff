@@ -68,7 +68,7 @@
         ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
         ctx.fillStyle = 'red';
         ctx.font = '20px Arial';
-        ctx.fillText('cleaned w/faceoffUS.com', 24, 24);
+        ctx.fillText('👺faceoffUS.com', 24, 24);
         faces = [];
         _detections.forEach((d) => {
           const { x, y, width, height } = getRect(d);
