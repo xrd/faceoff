@@ -21,6 +21,7 @@
     "@cloudflare/wrangler": "^1.10.3",
     "face-api.js": "^0.22.2",
     "global": "^4.4.0",
+    "piexifjs": "1.0.4",
     "sveltestrap": "^3.5.0"
   }
 }

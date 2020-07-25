@@ -23,6 +23,8 @@
 
   let open = false;
   const toggle = () => (open = !open);
+  let showPreferences = false;
+  const togglePreferences = () => (showPreferences = !showPreferences);
 
   const imgHeight = 400;
   const imgWidth = 600;
@@ -43,8 +45,15 @@
   let clicks = [];
   let color = 'red';
 
+  const colorChanged = (c) => {
+    console.log('Color is now:', c);
+  };
+
+  $: colorChanged(color);
+
   const canvasClick = ({ offsetX, offsetY }) => {
-    clicks.push({ offsetX, offsetY, radius, color });
+    clicks.unshift({ offsetX, offsetY, radius, color });
+    selected = 0;
     draw({ processFaces: false });
   };
 
@@ -84,22 +93,52 @@
   $: changeLastCircleRadius(radius);
 
   const changeLastCircleRadius = (r) => {
-    if (clicks) {
-      clicks[clicks.length - 1] = { ...clicks[clicks.length - 1], radius };
+    if (selected > -1) {
+      if (selected >= clicks.length) {
+        detections[selected + clicks.length].radius = r;
+      } else {
+        clicks[selected].radius = radius;
+      }
       draw({ processFaces: false });
     }
   };
 
-  const remove = (i) => {
-    removed[i] = !removed[i];
-    draw({ processFaces: false });
+  const changeRadiusOnSelection = (s) => {
+    if (s > -1) {
+      if (s >= clicks.length) {
+        radius = parseInt(detections[s + clicks.length].radius, 10);
+      } else {
+        radius = clicks[s].radius;
+      }
+    }
+  };
+
+  $: changeRadiusOnSelection(selected);
+
+  let selected = -1;
+  const selectFace = (i) => {
+    if (i === selected) {
+      removed[i] = !removed[i];
+      draw({ processFaces: false });
+    } else {
+      selected = i;
+    }
+  };
+
+  const select = (i) => {
+    selected = i;
   };
 
   const detect = (i) => {
     if (i) {
       faceapi.detectAllFaces(img).then((_detections) => {
         console.log('Got detections: ', _detections.length);
-        detections = _detections;
+        detections = [];
+        _detections.forEach((d) => {
+          const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
+          const radius = Math.max(rH, rW) / 2;
+          detections.push({ rX, rY, rW, rH, radius, color });
+        });
         clicks = [];
         removed = [];
         draw();
@@ -125,6 +164,48 @@
     ctx.font = '20px Arial';
   };
 
+  let date = '1776:07:04';
+
+  function addExifData(file) {
+    const zeroth = {};
+    const exif = {};
+    // const gps = {};
+    // zeroth[piexif.ImageIFD.Make] = "Make";
+    // zeroth[piexif.ImageIFD.XResolution] = [777, 1];
+    // zeroth[piexif.ImageIFD.YResolution] = [777, 1];
+    zeroth[piexif.ImageIFD.Software] = 'faceoffus.com';
+    exif[piexif.ExifIFD.DateTimeOriginal] = date;
+    // exif[piexif.ExifIFD.LensMake] = 'LensMake';
+    // exif[piexif.ExifIFD.Sharpness] = 777;
+    // exif[piexif.ExifIFD.LensSpecification] = [
+    //   [1, 1],
+    //   [1, 1],
+    //   [1, 1],
+    //   [1, 1],
+    // ];
+    // gps[piexif.GPSIFD.GPSVersionID] = [7, 7, 7, 7];
+    // gps[piexif.GPSIFD.GPSDateStamp] = '1999:99:99 99:99:99';
+    var exifObj = {
+      '0th': zeroth,
+      Exif: exif,
+      //GPS: gps,
+    };
+    var exifStr = piexif.dump(exifObj);
+
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var inserted = piexif.insert(exifStr, e.target.result);
+      var image = new Image();
+      image.src = inserted;
+      image.width = 200;
+      // var el = $('<div></div>').append(image);
+      // $('#resized').prepend(el);
+      // What do we do with the file?
+    };
+
+    reader.readAsDataURL(file);
+  }
+
   const draw = ({ processFaces = true } = {}) => {
     if (canvas && loaded) {
       const ctx = canvas.getContext('2d');
@@ -134,7 +215,7 @@
       if (processFaces) {
         faces = [];
         detections.forEach((d, i) => {
-          const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
+          const { rX, rY, rW, rH } = d;
           const chunk = ctx.getImageData(rX, rY, rW, rH);
           faces.push(imagedata_to_image(chunk));
         });
@@ -142,12 +223,10 @@
 
       detections.forEach((d, i) => {
         if (!removed[i]) {
-          const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
-          const radiusH = rH / 2;
-          const radiusW = rW / 2;
+          const { rX, rY, rW, rH, radius } = d;
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(rX + radiusW, rY + radiusH, radiusH, 0, 2 * Math.PI);
+          ctx.arc(rX + radius, rY + radius, radius, 0, 2 * Math.PI);
           ctx.stroke();
           ctx.fill();
         }
@@ -156,11 +235,9 @@
       clicks.forEach(({ offsetX, offsetY, radius }) => {
         const rX = offsetX,
           rY = offsetY;
-        const radiusH = radius;
-        const radiusW = radius;
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(rX, rY, radiusH, 0, 2 * Math.PI);
+        ctx.arc(rX, rY, radius, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.fill();
       });
@@ -185,6 +262,9 @@
     visibility: hidden;
   }
 
+  .selected {
+    border: 2px solid purple;
+  }
   .avatar {
     width: 64px;
     height: 64px;
@@ -217,7 +297,11 @@
       <div class="faces">
         {#if clicks}
           {#each clicks as click, i}
-            <span style="background-color: {click.color};" class="avatar">
+            <span
+              class:selected={selected === i}
+              on:click={() => select(i)}
+              style="background-color: {click.color};"
+              class="avatar">
               {click.radius}
             </span>
           {/each}
@@ -225,8 +309,9 @@
         {#if faces}
           {#each faces as face, i}
             <img
-              on:click={() => remove(i)}
+              on:click={() => selectFace(i)}
               alt="face"
+              class:selected={selected === i + clicks.length}
               class="avatar"
               src={face} />
           {/each}
@@ -249,10 +334,10 @@
           <Col>
             <Label for="exampleColor">Color</Label>
             <Input
-              bind:color
               type="color"
               name="color"
               id="exampleColor"
+              value={color}
               placeholder="color placeholder" />
           </Col>
           <Col>
@@ -277,7 +362,8 @@
   </Row>
   <Row>
     <Col>
-      <Button color="danger" on:click={toggle}>Remove watermark</Button>
+      <Button on:click={toggle}>Remove watermark</Button>
+      <Button on:click={togglePreferences}>Show Preferences</Button>
     </Col>
     <!-- <Col>
       {#if files && files[0]}
@@ -292,6 +378,23 @@
   <ModalBody>
     Remove the faceoffus.com watermark for just $10/yr. Pay with credit card,
     PayPal, or even Bitcoin or Ethereum!
+  </ModalBody>
+  <ModalFooter>
+    <Button color="primary" on:click={toggle}>Pay Now</Button>
+    <Button color="secondary" on:click={() => (open = false)}>Cancel</Button>
+  </ModalFooter>
+</Modal>
+
+<Modal isOpen={showPreferences} toggle={togglePreferences}>
+  <ModalHeader toggle={togglePreferences}>Image Export Preferences</ModalHeader>
+  <ModalBody>
+    Choose EXIF date:
+    <select value={date}>
+      <option val="1775:05:25">
+        May 25, 1775: British troops arrive in US
+      </option>
+    </select>
+
   </ModalBody>
   <ModalFooter>
     <Button color="primary" on:click={toggle}>Pay Now</Button>
