@@ -33,6 +33,12 @@
 
   let faces;
   let file;
+  let clicks = [];
+
+  const canvasClick = ({ offsetX, offsetY }) => {
+    clicks.push({ offsetX, offsetY });
+    draw({ processFaces: false });
+  };
 
   const load = (fs) => {
     if (fs) {
@@ -117,6 +123,19 @@
         ctx.fill();
       }
     });
+
+    clicks.forEach(({ offsetX, offsetY }) => {
+      const rX = offsetX,
+        rY = offsetY,
+        rW = 24,
+        rH = 24;
+      const radiusH = rH / 2;
+      const radiusW = rW / 2;
+      ctx.beginPath();
+      ctx.arc(rX, rY, radiusH, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.fill();
+    });
   };
 
   onMount(() => {
@@ -152,7 +171,11 @@
 <Container>
   <Row>
     <Col>
-      <canvas width="600" height="400" bind:this={canvas} />
+      <canvas
+        on:click={canvasClick}
+        width="600"
+        height="400"
+        bind:this={canvas} />
     </Col>
   </Row>
 
