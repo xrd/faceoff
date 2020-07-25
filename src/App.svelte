@@ -60,37 +60,63 @@
     return canvas.toDataURL();
   }
 
+  let removed = [];
+  let detections;
+
+  const remove = (i) => {
+    removed[i] = !removed[i];
+    draw({ processFaces: false });
+  };
+
   const detect = (i) => {
     if (i) {
-      const ctx = canvas.getContext('2d');
       faceapi.detectAllFaces(img).then((_detections) => {
-        console.log('Detected: ', _detections);
-        ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
-        ctx.fillStyle = 'red';
-        ctx.font = '20px Arial';
-        ctx.fillText('👺faceoffUS.com', 24, 24);
-        faces = [];
-        _detections.forEach((d) => {
-          const { x, y, width, height } = getRect(d);
-
-          const rX = x * imgWidth,
-            rY = y * imgHeight,
-            rW = width * imgWidth,
-            rH = height * imgHeight;
-
-          // Get out the image chunk
-          const chunk = ctx.getImageData(rX, rY, rW, rH);
-          faces.push(imagedata_to_image(chunk));
-
-          const radiusH = rH / 2;
-          const radiusW = rW / 2;
-          ctx.beginPath();
-          ctx.arc(rX + radiusW, rY + radiusH, radiusH, 0, 2 * Math.PI);
-          ctx.stroke();
-          ctx.fill();
-        });
+        console.log('Got detections: ', _detections.length);
+        detections = _detections;
+        draw();
       });
     }
+  };
+
+  const draw = ({ processFaces = true } = {}) => {
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+    ctx.fillStyle = 'black';
+    ctx.font = '20px Arial';
+    ctx.fillText('👺faceoffUS.com', canvas.width - 170, canvas.height - 5);
+    ctx.fillStyle = 'red';
+    ctx.fillText('👺faceoffUS.com', canvas.width - 171, canvas.height - 4);
+    ctx.font = '20px Arial';
+    console.log('Detections: ', detections.length);
+    if (processFaces) {
+      faces = [];
+      detections.forEach((d, i) => {
+        const { x, y, width, height } = getRect(d);
+        const rX = x * imgWidth,
+          rY = y * imgHeight,
+          rW = width * imgWidth,
+          rH = height * imgHeight;
+        const chunk = ctx.getImageData(rX, rY, rW, rH);
+        faces.push(imagedata_to_image(chunk));
+      });
+    }
+
+    detections.forEach((d, i) => {
+      if (!removed[i]) {
+        const { x, y, width, height } = getRect(d);
+        const rX = x * imgWidth,
+          rY = y * imgHeight,
+          rW = width * imgWidth,
+          rH = height * imgHeight;
+
+        const radiusH = rH / 2;
+        const radiusW = rW / 2;
+        ctx.beginPath();
+        ctx.arc(rX + radiusW, rY + radiusH, radiusH, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fill();
+      }
+    });
   };
 
   onMount(() => {
@@ -139,8 +165,12 @@
     </Col>
     <Col>
       {#if faces}
-        {#each faces as face}
-          <img alt="face" class="avatar" src={face} />
+        {#each faces as face, i}
+          <img
+            on:click={() => remove(i)}
+            alt="face"
+            class="avatar"
+            src={face} />
         {/each}
       {/if}
 
