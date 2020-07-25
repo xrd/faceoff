@@ -79,6 +79,7 @@
       faceapi.detectAllFaces(img).then((_detections) => {
         console.log('Got detections: ', _detections.length);
         detections = _detections;
+        clicks = [];
         draw();
       });
     }
