@@ -19,6 +19,9 @@
 
   export let w, h;
 
+  let canvasWidth = parseInt(w - 20,10);
+  let canvasHeight = parseInt((h / 2) - 20,10); 
+ 
   let img;
   let canvas;
   let files;
@@ -28,10 +31,27 @@
 
   const sussOutDimensions = (img) => {
     if (img) {
-      fullSizeHeight = img.height;
-      fullSizeWidth = img.width;
-      imgHeight = 400;
-      imgWidth = 600;
+	fullSizeHeight = img.height;
+	fullSizeWidth = img.width;
+	if (fullSizeHeight > fullSizeWidth) {
+	    // Make height max, and scale width
+	    imgHeight = canvasHeight;
+	    imgWidth = parseInt(canvasHeight * ( fullSizeWidth / fullSizeHeight ), 10);
+
+	    if (imgWidth > canvasWidth) {
+		imgWidth = canvasWidth;
+		imgHeight = parseInt(canvasWidth * ( fullSizeHeight / fullSizeWidth ), 10);
+	    }
+	} else {
+	    imgWidth = canvasWidth;
+	    imgHeight = parseInt(canvasWidth * ( fullSizeHeight / fullSizeWidth ), 10);
+
+	    if (imgHeight > canvasHeight) {
+		imgHeight = canvasHeight;
+		imgWidth = parseInt(canvasHeight * ( fullSizeWidth / fullSizeHeight ), 10);
+	    }
+	}
+	console.log('Image dimensions', imgWidth, imgHeight, canvasWidth, canvasHeight);
     }
   };
 
@@ -308,8 +328,8 @@
       <Col>
         <canvas
           on:click={canvasClick}
-          width="600"
-          height="400"
+          width={imgWidth}
+          height={imgHeight}
           bind:this={canvas} />
       </Col>
     </Row>
