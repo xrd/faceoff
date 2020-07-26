@@ -23,13 +23,24 @@
   let canvas;
   let files;
 
+  let fullSizeHeight, fullSizeWidth;
+  let imgHeight, imgWidth;
+
+  const sussOutDimensions = (img) => {
+    if (img) {
+      fullSizeHeight = img.height;
+      fullSizeWidth = img.width;
+      imgHeight = 400;
+      imgWidth = 600;
+    }
+  };
+
+  $: sussOutDimensions(img);
+
   let open = false;
   const toggle = () => (open = !open);
   let showPreferences = false;
   const togglePreferences = () => (showPreferences = !showPreferences);
-
-  const imgHeight = 400;
-  const imgWidth = 600;
 
   const getRect = (d) => {
     return d.relativeBox;
@@ -63,10 +74,11 @@
 
   const load = (fs) => {
     if (fs) {
-      console.log('Filename', fs[0].name);
       file = fs[0];
+      console.log('File dimensions', file.height, file.width);
       const reader = new FileReader();
       reader.onloadend = function () {
+        // console.log('Reader is:', reader);
         img.src = reader.result;
         loaded = true;
       };
@@ -83,7 +95,6 @@
     canvas.width = imagedata.width;
     canvas.height = imagedata.height;
     ctx.putImageData(imagedata, 0, 0);
-
     var image = new Image();
     return canvas.toDataURL();
   }
