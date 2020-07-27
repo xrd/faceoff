@@ -75,7 +75,6 @@
 
   let faces;
   let file;
-  let clicks = [];
   let color = 'red';
 
   const colorChanged = (c) => {
@@ -85,7 +84,14 @@
   $: colorChanged(color);
 
   const canvasClick = ({ offsetX, offsetY }) => {
-    clicks = [{ offsetX, offsetY, radius, color }, ...clicks];
+    let rX = offsetX;
+    let rY = offsetY;
+    const detection = { rX, rY, rW: radius, rH: radius, color };
+    detections = [detection, ...detections];
+    // We add half rW/rH in to get the correct center point, so remove here
+    const chunk = ctx.getImageData(rX - radius / 2, rY - radius / 2, radius, radius);
+    faces[selected] = imagedata_to_image(chunk);
+    faces = faces;
     selected = 0;
     draw({ processFaces: false });
   };
@@ -127,22 +133,19 @@
 
   const changeLastCircleRadius = (r) => {
     if (selected > -1) {
-      if (selected >= clicks.length) {
-        detections[selected + clicks.length].radius = r;
-      } else {
-        clicks[selected].radius = radius;
-      }
+      detections[selected].radius = r;
+      const { rX, rY, rW, rH } = detections[selected];
+      // We add half rW/rH in to get the correct center point, so remove here
+      const chunk = ctx.getImageData(rX - rW / 2, rY - rH / 2, rW, rH);
+      faces[selected] = imagedata_to_image(chunk);
+      faces = faces;
       draw({ processFaces: false });
     }
   };
 
   const changeRadiusOnSelection = (s) => {
     if (s > -1) {
-      if (s >= clicks.length) {
-        radius = parseInt(detections[s - clicks.length].radius, 10);
-      } else {
-        radius = clicks[s].radius;
-      }
+      radius = parseInt(detections[s].radius, 10);
     }
   };
 
@@ -179,7 +182,6 @@
             color,
           });
         });
-        clicks = [];
         removed = [];
         draw();
       });
@@ -246,9 +248,11 @@
     reader.readAsDataURL(file);
   }
 
+  let ctx;
+
   const draw = ({ processFaces = true } = {}) => {
     if (canvas && loaded) {
-      const ctx = canvas.getContext('2d');
+      ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
       drawLogo(ctx);
       if (processFaces) {
@@ -262,7 +266,7 @@
       }
 
       detections.forEach((d, i) => {
-        if (!removed[i + clicks.length]) {
+        if (!removed[i]) {
           const { rX, rY, rW, rH, radius } = d;
           ctx.fillStyle = color;
           ctx.beginPath();
@@ -270,16 +274,6 @@
           ctx.stroke();
           ctx.fill();
         }
-      });
-
-      clicks.forEach(({ offsetX, offsetY, radius }) => {
-        const rX = offsetX,
-          rY = offsetY;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(rX, rY, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-        ctx.fill();
       });
     }
   };
@@ -338,23 +332,12 @@
     <Row>
       <Col>
         <div class="faces">
-          {#if clicks}
-            {#each clicks as click, i}
-              <span
-                class:selected={selected === i}
-                on:click={() => select(i)}
-                style="background-color: {click.color};"
-                class="avatar">
-                r:{click.radius}
-              </span>
-            {/each}
-          {/if}
           {#if faces}
             {#each faces as face, i}
               <img
-                on:click={() => selectFace(i + clicks.length)}
+                on:click={() => selectFace(i)}
                 alt="face"
-                class:selected={selected === i + clicks.length}
+                class:selected={selected === i}
                 class="avatar"
                 src={face} />
             {/each}
