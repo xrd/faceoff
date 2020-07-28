@@ -367,9 +367,15 @@
                 placeholder="color placeholder" />
             </Col>
             <Col>
-              <Label for="radius">Radius ({radius})</Label>
+
+              <Label for="radius">Radius 
+              {#if selected > -1 }
+              ({radius})
+              {/if}
+              </Label>
               <input
                 type="range"
+                disabled={selected < 0}
                 name="radius"
                 id="radius"
                 bind:value={radius}
