@@ -17,11 +17,16 @@
   import { onMount } from 'svelte';
   import * as faceapi from 'face-api.js';
 
-  export let w, h;
+  import { getRelativeBox } from './dimensions';
 
-  let canvasWidth = parseInt(w - 20,10);
-  let canvasHeight = parseInt((h / 2) - 20,10); 
- 
+  export let w, h;
+  export let skipDetection = false;
+  export let altImgDims = {};
+
+  let canvasWidth = parseInt(w - 20, 10);
+  let canvasHeight = parseInt(h / 2 - 20, 10);
+
+  export let cannedImage;
   let img;
   let canvas;
   let files;
@@ -31,27 +36,49 @@
 
   const sussOutDimensions = (img) => {
     if (img) {
-	fullSizeHeight = img.height;
-	fullSizeWidth = img.width;
-	if (fullSizeHeight > fullSizeWidth) {
-	    // Make height max, and scale width
-	    imgHeight = canvasHeight;
-	    imgWidth = parseInt(canvasHeight * ( fullSizeWidth / fullSizeHeight ), 10);
+      fullSizeHeight = img.height || altImgDims.height;
+      fullSizeWidth = img.width || altImgDims.width;
+      if (fullSizeHeight > fullSizeWidth) {
+        // Make height max, and scale width
+        imgHeight = canvasHeight;
+        imgWidth = parseInt(
+          canvasHeight * (fullSizeWidth / fullSizeHeight),
+          10
+        );
 
-	    if (imgWidth > canvasWidth) {
-		imgWidth = canvasWidth;
-		imgHeight = parseInt(canvasWidth * ( fullSizeHeight / fullSizeWidth ), 10);
-	    }
-	} else {
-	    imgWidth = canvasWidth;
-	    imgHeight = parseInt(canvasWidth * ( fullSizeHeight / fullSizeWidth ), 10);
+        if (imgWidth > canvasWidth) {
+          imgWidth = canvasWidth;
+          imgHeight = parseInt(
+            canvasWidth * (fullSizeHeight / fullSizeWidth),
+            10
+          );
+        }
+      } else {
+        imgWidth = canvasWidth;
+        imgHeight = parseInt(
+          canvasWidth * (fullSizeHeight / fullSizeWidth),
+          10
+        );
 
-	    if (imgHeight > canvasHeight) {
-		imgHeight = canvasHeight;
-		imgWidth = parseInt(canvasHeight * ( fullSizeWidth / fullSizeHeight ), 10);
-	    }
-	}
-	console.log('Image dimensions', imgWidth, imgHeight, canvasWidth, canvasHeight);
+        if (imgHeight > canvasHeight) {
+          imgHeight = canvasHeight;
+          imgWidth = parseInt(
+            canvasHeight * (fullSizeWidth / fullSizeHeight),
+            10
+          );
+        }
+      }
+      console.log(
+        'Image dimensions',
+        imgWidth,
+        imgHeight,
+        canvasWidth,
+        canvasHeight
+      );
+    }
+
+    if (cannedDetections) {
+      processDetections(cannedDetections);
     }
   };
 
@@ -63,7 +90,7 @@
   const togglePreferences = () => (showPreferences = !showPreferences);
 
   const getRect = (d) => {
-    return d.relativeBox;
+    return getRelativeBox(d);
   };
 
   const download = () => {
@@ -89,14 +116,27 @@
     const detection = { rX, rY, rW: radius, rH: radius, color };
     detections = [detection, ...detections];
     // We add half rW/rH in to get the correct center point, so remove here
-    const chunk = ctx.getImageData(rX - radius / 2, rY - radius / 2, radius, radius);
+    const chunk = ctx.getImageData(
+      rX - radius / 2,
+      rY - radius / 2,
+      radius,
+      radius
+    );
     faces[selected] = imagedata_to_image(chunk);
     faces = faces;
     selected = 0;
     draw({ processFaces: false });
   };
 
-  let loaded = false;
+  const drawWhenCanvasReady = (c) => {
+    if (c) {
+      draw();
+    }
+  };
+
+  $: drawWhenCanvasReady(canvas);
+
+  export let loaded = false;
 
   const load = (fs) => {
     if (fs) {
@@ -126,7 +166,8 @@
   }
 
   let removed = [];
-  let detections;
+  export let cannedDetections;
+  let detections = [];
   let radius = 24;
 
   $: changeLastCircleRadius(radius);
@@ -165,35 +206,51 @@
     selected = i;
   };
 
-  const detect = (i) => {
-    if (i) {
-      faceapi.detectAllFaces(img).then((_detections) => {
-        console.log('Got detections: ', _detections.length);
-        detections = [];
-        _detections.forEach((d) => {
-          const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
-          const radius = Math.max(rH, rW) / 2;
-          detections.push({
-            rX: rX + rW / 2,
-            rY: rY + rH / 2,
-            rW,
-            rH,
-            radius,
-            color,
-          });
+  $: processDetections(cannedDetections);
+
+  const processDetections = (_detections) => {
+    if (_detections) {
+      _detections.forEach((d) => {
+        const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
+        const radius = Math.max(rH, rW) / 2;
+        detections.push({
+          rX: rX + rW / 2,
+          rY: rY + rH / 2,
+          rW,
+          rH,
+          radius,
+          color,
         });
-        removed = [];
-        draw();
       });
     }
   };
 
+  const detect = (i) => {
+    if (i && !skipDetection) {
+      faceapi.detectAllFaces(img).then((_detections) => {
+        console.log('Got detections: ', JSON.stringify(_detections));
+        detections = [];
+        removed = [];
+        processDetections(_detections);
+      });
+    }
+  };
+
+  const drawNewDetections = (d) => {
+    if (d) {
+      console.log('Drawing new detections');
+      draw();
+    }
+  };
+
+  $: drawNewDetections(detections);
+
   const getCircle = ({ d, imgHeight, imgWidth }) => {
-    const { x, y, width, height } = getRect(d);
-    const rX = x * imgWidth,
-      rY = y * imgHeight,
-      rW = width * imgWidth,
-      rH = height * imgHeight;
+    const { _x, _y, _width, _height } = getRect(d);
+    const rX = _x * imgWidth,
+      rY = _y * imgHeight,
+      rW = _width * imgWidth,
+      rH = _height * imgHeight;
     return { rX, rY, rW, rH };
   };
 
@@ -251,7 +308,7 @@
   let ctx;
 
   const draw = ({ processFaces = true } = {}) => {
-    if (canvas && loaded) {
+    if (canvas && loaded && img && img.src) {
       ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
       drawLogo(ctx);
@@ -279,9 +336,16 @@
   };
 
   onMount(() => {
-    console.log(console.log(faceapi.nets));
-    console.log(faceapi.nets);
-    faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
+    if (!skipDetection) {
+      console.log(console.log(faceapi.nets));
+      console.log(faceapi.nets);
+      faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
+    }
+
+    if (cannedImage) {
+      img.src = cannedImage.src;
+      img = img;
+    }
   });
 </script>
 
