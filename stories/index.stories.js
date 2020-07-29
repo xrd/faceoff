@@ -3,6 +3,7 @@ import { action } from '@storybook/addon-actions';
 import Button from './button.svelte';
 import Frame from './Frame.svelte';
 import Detections from './Detections.svelte';
+import Detections2 from './Detections2.svelte';
 
 export default {
   title: 'Button',
@@ -11,6 +12,11 @@ export default {
 
 export const DetectionsStory = () => ({
   Component: Detections,
+});
+
+
+export const Detections2Story = () => ({
+  Component: Detections2,
 });
 
 export const Text = () => ({

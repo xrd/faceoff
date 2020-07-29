@@ -22,12 +22,11 @@
   export let w, h;
   export let skipDetection = false;
   export let altImgDims = {};
+  export let img;
+  let src;
 
   let canvasWidth = parseInt(w - 20, 10);
   let canvasHeight = parseInt(h / 2 - 20, 10);
-
-  export let cannedImage;
-  let img;
   let canvas;
   let files;
 
@@ -35,6 +34,7 @@
   let imgHeight, imgWidth;
 
   const sussOutDimensions = (img) => {
+    console.log('Img is: ', img);
     if (img) {
       fullSizeHeight = img.height || altImgDims.height;
       fullSizeWidth = img.width || altImgDims.width;
@@ -68,6 +68,10 @@
           );
         }
       }
+
+      // imgHeight = 400;
+      // imgWidth = 500;
+
       console.log(
         'Image dimensions',
         imgWidth,
@@ -75,9 +79,11 @@
         canvasWidth,
         canvasHeight
       );
+
     }
 
     if (cannedDetections) {
+      console.log('Processing canned detections');
       processDetections(cannedDetections);
     }
   };
@@ -88,10 +94,6 @@
   const toggle = () => (open = !open);
   let showPreferences = false;
   const togglePreferences = () => (showPreferences = !showPreferences);
-
-  const getRect = (d) => {
-    return getRelativeBox(d);
-  };
 
   const download = () => {
     const link = document.createElement('a');
@@ -246,11 +248,12 @@
   $: drawNewDetections(detections);
 
   const getCircle = ({ d, imgHeight, imgWidth }) => {
-    const { _x, _y, _width, _height } = getRect(d);
+    const { _x, _y, _width, _height } = getRelativeBox(d);
     const rX = _x * imgWidth,
       rY = _y * imgHeight,
       rW = _width * imgWidth,
       rH = _height * imgHeight;
+      console.log('rX, rY, rW, rH', rX, rY, rW, rH);
     return { rX, rY, rW, rH };
   };
 
@@ -308,8 +311,9 @@
   let ctx;
 
   const draw = ({ processFaces = true } = {}) => {
-    if (canvas && loaded && img && img.src) {
+    if (canvas && loaded && img) {
       ctx = canvas.getContext('2d');
+      console.log('Drawing the image');
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
       drawLogo(ctx);
       if (processFaces) {
@@ -317,8 +321,17 @@
         detections.forEach((d, i) => {
           const { rX, rY, rW, rH } = d;
           // We add half rW/rH in to get the correct center point, so remove here
-          const chunk = ctx.getImageData(rX - rW / 2, rY - rH / 2, rW, rH);
-          faces.push(imagedata_to_image(chunk));
+          const x = Math.max(rX - rW / 2, 1), 
+          y = Math.max(rY - rH / 2, 1), 
+          w = Math.max(rW, 1), 
+          h = Math.max(rH,1);
+          console.log('X,Y,W,H', x, y, w, h);
+          const chunk =
+          // ctx.getImageData(10, 10, 20, 20 );
+          ctx.getImageData(x, y,w, h);
+          const face = imagedata_to_image(chunk);
+          console.log('Got face: ', face);
+          faces.push(face);
         });
       }
 
@@ -340,11 +353,6 @@
       console.log(console.log(faceapi.nets));
       console.log(faceapi.nets);
       faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
-    }
-
-    if (cannedImage) {
-      img.src = cannedImage.src;
-      img = img;
     }
   });
 </script>
@@ -513,4 +521,4 @@
   </ModalFooter>
 </Modal>
 
-<img class="img" alt="picture" bind:this={img} />
+<img class="img" alt="picture" src={src} bind:this={img} />

@@ -4,11 +4,18 @@
   import Center from '../src/Center.svelte';
   // import img_data_url from './img_data_url.json';
   import protest from './protests.jpg';
+  let img;
 
-  const img = {
-    alt: 'my image',
-    src: protest,
-  };
+  // const img = {
+  //   alt: 'my image',
+  //   src: protest,
+  // };
+
+  let cannedImg;
+  
+  // onMount( () => {
+  //   cannedImg = img;
+  // });
 
 </script>
 
@@ -17,17 +24,24 @@
     height: 600px;
     width: 600px;
   }
+.img {
+  width: 480px;
+}
+
 </style>
 
 <div class="wrapper">
 
+  {#if img}
   <Center
     cannedDetections={detections}
     w={600}
     h={600}
-    cannedImage={img}
+    {img}
     skipDetection={true}
     loaded={true}
     altImgDims={{ height: 3024, width: 4032 }} />
-
+  {/if}
 </div>
+
+<img src={protest} class="img" bind:this={img}/>
