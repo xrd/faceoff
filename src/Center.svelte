@@ -18,6 +18,7 @@
   import * as faceapi from 'face-api.js';
 
   import { getRelativeBox } from './dimensions';
+  import Introduction from './Introduction.svelte';
 
   export let w, h;
   export let skipDetection = false;
@@ -103,7 +104,7 @@
     }
 
     if (cannedDetections) {
-      console.log('Processing canned detections');
+      // console.log('Processing canned detections');
       processDetections(cannedDetections);
     }
   };
@@ -143,6 +144,12 @@
     }
     selected = 0;
     draw();
+
+    // In a short while, get the new item, and scroll it into view
+    setTimeout( () => {
+      const faces = document.getElementsByClassName('avatar');
+      faces[0].scrollIntoView({behavior: 'smooth'});
+    }, 250);
   };
 
   const drawWhenCanvasReady = (c) => {
@@ -154,7 +161,7 @@
   const load = (fs) => {
     if (fs) {
       file = fs[0];
-      console.log('File dimensions', file.height, file.width);
+      // console.log('File dimensions', file.height, file.width);
       const reader = new FileReader();
       reader.onloadend = function () {
         // console.log('Reader is:', reader);
@@ -185,6 +192,7 @@
     if (selected > -1) {
       // console.log('CENTER: Changing radius to:', r);
       detections[selected].radius = r;
+      removed[selected] = false;
       const { rX, rY, rW, rH } = detections[selected];
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
       const face = getFace(rX - r / 2, rY - r / 2, r, r);
@@ -217,6 +225,7 @@
 
   const processDetections = (_detections) => {
     if (_detections) {
+      faces = [];
       _detections.forEach((d) => {
         const { rX, rY, rW, rH } = getCircle({ d, imgHeight, imgWidth });
         const radius = Math.max(rH, rW) / 2;
@@ -240,6 +249,7 @@
       // console.log('READY TO PROCESS', i.src);
       processing = true;
       faceapi.detectAllFaces(img).then((_detections) => {
+        // faces = [];
         // console.log('Got detections: ', JSON.stringify(_detections));
         detections = [];
         removed = [];
@@ -331,9 +341,7 @@
       ctx = canvas.getContext('2d');
       // console.log('Drawing the image');
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
-      if (!faces) {
-        // console.log('CHANGE, grabbing faces here again');
-        faces = [];
+      if (!faces || faces.length === 0) {
         detections.forEach((d, i) => {
           const { rX, rY, rW, rH } = d;
           // We add half rW/rH in to get the correct center point, so remove here
@@ -428,6 +436,18 @@
     padding-left: 1rem;
     padding-right: 1rem;
   }
+
+  .container {
+    width: 99%;
+    height: 99%;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  .extra {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 </style>
 
 <svelte:head>
@@ -436,8 +456,8 @@
     href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
 </svelte:head>
 
-<Container>
-  <Row style="height: {h / 2 - 5}px;">
+<div class="container">
+  <div style="height: {h / 2 - 5}px;">
     <Row>
       <Col>
       {#if loaded}
@@ -446,18 +466,24 @@
           width={imgWidth}
           height={imgHeight}
           bind:this={canvas} />
-      {:else}
+      {/if}
       {#if processing}
       <div class="processing">Analyzing image for faces...</div>
       {/if}
+      {#if !loaded && !canvas}
+  
+        <Introduction/>
+        
       {/if}
       </Col>
       </Row>
-  </Row>
+  </div>
 
-  <Row style="height: {h / 2 - 5}px;">
+  <div style="height: {h / 2 - 5}px;">
     <Row>
       <Col>
+
+        {#if loaded}
         <Row>
           <div class="faces_wrapper">
             <div class="faces">
@@ -478,7 +504,6 @@
           </div>
         </Row>
 
-        {#if loaded}
         <Row>
           <Col>
             <div class="row">
@@ -510,10 +535,20 @@
             <div class="row">
               <Input bind:files type="file" name="file" id="exampleFile" />
               <FormText color="muted">
-                Choose a file for processing. This file is NOT sent to any other
-                server; it never leaves your browser.
+                Choose an image for processing. This file is NOT sent to any other
+                server; the image never leaves your device.
+                {#if !loaded}
+                <div class="extra">
+                FaceOffUS.com does not
+                make any network connections to analyze your images; you
+                can even turn off your network while using it.
+                No Google/Facebook tracking/analytics are used on FaceOffUS.com.
+                A self-hosted Matomo is used for analytics.
+                </div>
+                {/if}
               </FormText>
             </div>
+
           </Col>
         </Row>
         {#if loaded}
@@ -554,8 +589,8 @@
         </Button>
       </Col> -->
     </Row>
-  </Row>
-</Container>
+  </div>
+  </div>
 
 <Modal isOpen={open} {toggle}>
   <ModalHeader {toggle}>Purchase Yearly Subscription</ModalHeader>

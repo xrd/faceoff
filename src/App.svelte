@@ -7,11 +7,19 @@
   .all {
     height: 100%;
     width: 100%;
+    overflow: hidden;
   }
+  .wrapper {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
 </style>
 
-<div bind:clientHeight={h} bind:clientWidth={w} class="all">
-  {#if h && w}
-    <Center {h} {w} />
-  {/if}
-</div>
+  <div bind:clientHeight={h} bind:clientWidth={w} class="all">
+    {#if h && w}
+    <div class="wrapper">
+      <Center {h} {w} />
+      </div>
+    {/if}
+  </div>

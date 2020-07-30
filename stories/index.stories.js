@@ -5,6 +5,7 @@ import Frame from './Frame.svelte';
 import Detections from './Detections.svelte';
 import Detections2 from './Detections2.svelte';
 import Faces from './Faces.svelte';
+import IntroWrapper from './IntroWrapper.svelte';
 
 export default {
   title: 'Button',
@@ -13,6 +14,10 @@ export default {
 
 export const DetectionsStory = () => ({
   Component: Detections,
+});
+
+export const IntroStory = () => ({
+  Component: IntroWrapper,
 });
 
 export const FacesStory = () => ({
