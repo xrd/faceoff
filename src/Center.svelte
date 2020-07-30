@@ -110,7 +110,7 @@
 
   const download = () => {
     const link = document.createElement('a');
-    link.download = 'family.png';
+    link.download = 'faceoffus.png';
     link.href = canvas.toDataURL();
     link.click();
   };
@@ -139,7 +139,7 @@
       h = defaultClickRadius;
     const face = getFace(x, y, w, h);
     if (face) {
-      faces = [{ src: face, text: (new Date()).getTime()}, ...faces];
+      faces = [{ src: face, text: new Date().getTime() }, ...faces];
     }
     selected = 0;
     draw();
@@ -232,12 +232,18 @@
     }
   };
 
+  let processing = false;
+
   const detect = (i) => {
-    if (i && !skipDetection) {
+    // console.log('DETECING');
+    if (i && i.src && !skipDetection) {
+      // console.log('READY TO PROCESS', i.src);
+      processing = true;
       faceapi.detectAllFaces(img).then((_detections) => {
         // console.log('Got detections: ', JSON.stringify(_detections));
         detections = [];
         removed = [];
+        processing = false;
         processDetections(_detections);
       });
     }
@@ -381,11 +387,17 @@
     overflow-x: scroll;
     white-space: nowrap;
     height: 100px;
+    width: 100%;
   }
 
   .face_wrapper {
     display: inline-block;
   }
+
+  .faces_wrapper {
+    width: 98vw;
+  }
+
   .text {
     font-size: 0.6rem;
     bottom: -20px;
@@ -410,6 +422,12 @@
     text-align: center;
     line-height: 64px;
   }
+
+  .row {
+    padding-bottom: 0.6rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 </style>
 
 <svelte:head>
@@ -422,57 +440,60 @@
   <Row style="height: {h / 2 - 5}px;">
     <Row>
       <Col>
+      {#if loaded}
         <canvas
           on:click={canvasClick}
           width={imgWidth}
           height={imgHeight}
           bind:this={canvas} />
+      {:else}
+      {#if processing}
+      <div class="processing">Analyzing image for faces...</div>
+      {/if}
+      {/if}
       </Col>
-    </Row>
+      </Row>
   </Row>
+
   <Row style="height: {h / 2 - 5}px;">
     <Row>
       <Col>
-        <div class="faces">
-          {#if faces}
-            {#each faces as face, i}
-              <div class="face_wrapper">
-                <img
-                  on:click={() => selectFace(i)}
-                  alt="face"
-                  class:selected={selected === i}
-                  class="avatar"
-                  src={face.src} />
-                <span class="text">{face.text}</span>
-              </div>
-            {/each}
-          {/if}
-        </div>
-      </Col>
-    </Row>
+        <Row>
+          <div class="faces_wrapper">
+            <div class="faces">
+              {#if faces}
+                {#each faces as face, i}
+                  <div class="face_wrapper">
+                    <img
+                      on:click={() => selectFace(i)}
+                      alt="face"
+                      class:selected={selected === i}
+                      class="avatar"
+                      src={face.src} />
+                    <span class="text">{face.text}</span>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          </div>
+        </Row>
 
-    <Row>
-      <Col>
-        <FormGroup>
-          <Row>
-            <Col>
-              <Input bind:files type="file" name="file" id="exampleFile" />
-              <FormText color="muted">
-                Choose a file for processing. This file is NOT sent to any other
-                server; it never leaves your browser.
-              </FormText>
-            </Col>
-            <Col>
-              <Label for="exampleColor">Color</Label>
+        {#if loaded}
+        <Row>
+          <Col>
+            <div class="row">
+              <Label for="exampleColor">Faceoff Color</Label>
               <Input
                 type="color"
                 name="color"
                 id="exampleColor"
                 bind:value={color}
                 placeholder="color placeholder" />
-            </Col>
-            <Col>
-              <Label for="radius">Radius ({radius})</Label>
+            </div>
+          </Col>
+          <Col>
+            <div class="row">
+              <Label for="radius">Faceoff Radius ({radius})</Label>
               <input
                 type="range"
                 name="radius"
@@ -480,19 +501,36 @@
                 bind:value={radius}
                 min="0"
                 max="128" />
-            </Col>
-            <Col>
-              <Button color="primary" outline on:click={download}>
-                Download
+            </div>
+          </Col>
+        </Row>
+        {/if}
+        <Row>
+          <Col>
+            <div class="row">
+              <Input bind:files type="file" name="file" id="exampleFile" />
+              <FormText color="muted">
+                Choose a file for processing. This file is NOT sent to any other
+                server; it never leaves your browser.
+              </FormText>
+            </div>
+          </Col>
+        </Row>
+        {#if loaded}
+        <Row>
+          <Col>
+            <div class="row">
+              <Button block color="primary" on:click={download}>
+                Download Modified Image
               </Button>
-
-            </Col>
-          </Row>
-        </FormGroup>
+            </div>
+          </Col>
+        </Row>
+        {/if}
       </Col>
     </Row>
     <Row>
-      <Col>
+      <!-- <Col>
         <Button on:click={togglePreferences}>
           <svg
             width="1em"
@@ -514,12 +552,7 @@
               0h-2.5v-1H16v1zM6.5 9H16V8H6.5v1zM0 9h2.5V8H0v1z" />
           </svg>
         </Button>
-      </Col>
-      <!-- <Col>
-      {#if files && files[0]}
-        <p>{files[0].name}</p>
-      {/if}
-    </Col> -->
+      </Col> -->
     </Row>
   </Row>
 </Container>

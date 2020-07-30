@@ -2,6 +2,7 @@
 
 source ~/.netlify.faceoffus.env
 rm faceoffus.zip
+yarn build
 zip -r faceoffus.zip public
 curl -H "Content-Type: application/zip" \
     -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
