@@ -24,20 +24,44 @@
   export let altImgDims = {};
   export let img;
   let src;
-
+  let ctx;
   let canvasWidth = parseInt(w - 20, 10);
   let canvasHeight = parseInt(h / 2 - 20, 10);
   let canvas;
   let files;
-
   let fullSizeHeight, fullSizeWidth;
   let imgHeight, imgWidth;
+  let faces;
+  let file;
+  let color = 'red';
+
+  let open = false;
+  const toggle = () => (open = !open);
+  let showPreferences = false;
+  const togglePreferences = () => (showPreferences = !showPreferences);
+
+  export let loaded = false;
+
+  let removed = [];
+  export let cannedDetections;
+  let detections = [];
+  let radius = 24;
+  let selected = -1;
+
+  $: changeRadiusOnSelection(selected);
+  $: changeLastCircleRadius(radius);
+  $: load(files);
+  $: detect(img);
+  $: sussOutDimensions(img);
+  $: colorChanged(color);
+  $: processDetections(cannedDetections);
+  $: drawNewDetections(detections);
 
   const sussOutDimensions = (img) => {
-    console.log('Img is: ', img);
+    // console.log('Img is: ', img);
     if (img) {
-      fullSizeHeight = img.height || altImgDims.height;
-      fullSizeWidth = img.width || altImgDims.width;
+      fullSizeHeight = altImgDims.height || img.height;
+      fullSizeWidth = altImgDims.width || img.width;
       if (fullSizeHeight > fullSizeWidth) {
         // Make height max, and scale width
         imgHeight = canvasHeight;
@@ -69,17 +93,13 @@
         }
       }
 
-      // imgHeight = 400;
-      // imgWidth = 500;
-
-      console.log(
-        'Image dimensions',
-        imgWidth,
-        imgHeight,
-        canvasWidth,
-        canvasHeight
-      );
-
+      // console.log(
+      //   'Image dimensions',
+      //   imgWidth,
+      //   imgHeight,
+      //   canvasWidth,
+      //   canvasHeight
+      // );
     }
 
     if (cannedDetections) {
@@ -88,13 +108,6 @@
     }
   };
 
-  $: sussOutDimensions(img);
-
-  let open = false;
-  const toggle = () => (open = !open);
-  let showPreferences = false;
-  const togglePreferences = () => (showPreferences = !showPreferences);
-
   const download = () => {
     const link = document.createElement('a');
     link.download = 'family.png';
@@ -102,32 +115,34 @@
     link.click();
   };
 
-  let faces;
-  let file;
-  let color = 'red';
-
   const colorChanged = (c) => {
-    draw({ processFaces: false });
+    draw();
   };
-
-  $: colorChanged(color);
 
   const canvasClick = ({ offsetX, offsetY }) => {
     let rX = offsetX;
     let rY = offsetY;
-    const detection = { rX, rY, rW: radius, rH: radius, color };
+    let defaultClickRadius = 12;
+    const detection = {
+      radius: defaultClickRadius,
+      rX,
+      rY,
+      rW: defaultClickRadius,
+      rH: defaultClickRadius,
+      color,
+    };
     detections = [detection, ...detections];
     // We add half rW/rH in to get the correct center point, so remove here
-    const chunk = ctx.getImageData(
-      rX - radius / 2,
-      rY - radius / 2,
-      radius,
-      radius
-    );
-    faces[selected] = imagedata_to_image(chunk);
-    faces = faces;
+    const x = rX - defaultClickRadius / 2,
+      y = rY - defaultClickRadius / 2,
+      w = defaultClickRadius,
+      h = defaultClickRadius;
+    const face = getFace(x, y, w, h);
+    if (face) {
+      faces = [{ src: face, text: (new Date()).getTime()}, ...faces];
+    }
     selected = 0;
-    draw({ processFaces: false });
+    draw();
   };
 
   const drawWhenCanvasReady = (c) => {
@@ -135,10 +150,6 @@
       draw();
     }
   };
-
-  $: drawWhenCanvasReady(canvas);
-
-  export let loaded = false;
 
   const load = (fs) => {
     if (fs) {
@@ -154,9 +165,6 @@
     }
   };
 
-  $: load(files);
-  $: detect(img);
-
   function imagedata_to_image(imagedata) {
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
@@ -167,22 +175,24 @@
     return canvas.toDataURL();
   }
 
-  let removed = [];
-  export let cannedDetections;
-  let detections = [];
-  let radius = 24;
+  // const logFaceChange = (f) => {
+  //   // console.log('CHANGE, faces changed');
+  // };
 
-  $: changeLastCircleRadius(radius);
+  // $: logFaceChange(faces);
 
   const changeLastCircleRadius = (r) => {
     if (selected > -1) {
+      // console.log('CENTER: Changing radius to:', r);
       detections[selected].radius = r;
       const { rX, rY, rW, rH } = detections[selected];
-      // We add half rW/rH in to get the correct center point, so remove here
-      const chunk = ctx.getImageData(rX - rW / 2, rY - rH / 2, rW, rH);
-      faces[selected] = imagedata_to_image(chunk);
-      faces = faces;
-      draw({ processFaces: false });
+      ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+      const face = getFace(rX - r / 2, rY - r / 2, r, r);
+      if (face) {
+        faces[selected] = { src: face, text: new Date().getTime() };
+        faces = [...faces];
+        draw();
+      }
     }
   };
 
@@ -192,13 +202,10 @@
     }
   };
 
-  $: changeRadiusOnSelection(selected);
-
-  let selected = -1;
   const selectFace = (i) => {
     if (i === selected) {
       removed[i] = !removed[i];
-      draw({ processFaces: false });
+      draw();
     } else {
       selected = i;
     }
@@ -207,8 +214,6 @@
   const select = (i) => {
     selected = i;
   };
-
-  $: processDetections(cannedDetections);
 
   const processDetections = (_detections) => {
     if (_detections) {
@@ -230,7 +235,7 @@
   const detect = (i) => {
     if (i && !skipDetection) {
       faceapi.detectAllFaces(img).then((_detections) => {
-        console.log('Got detections: ', JSON.stringify(_detections));
+        // console.log('Got detections: ', JSON.stringify(_detections));
         detections = [];
         removed = [];
         processDetections(_detections);
@@ -240,12 +245,10 @@
 
   const drawNewDetections = (d) => {
     if (d) {
-      console.log('Drawing new detections');
+      // console.log('CHANGE: Drawing new detections');
       draw();
     }
   };
-
-  $: drawNewDetections(detections);
 
   const getCircle = ({ d, imgHeight, imgWidth }) => {
     const { _x, _y, _width, _height } = getRelativeBox(d);
@@ -253,7 +256,16 @@
       rY = _y * imgHeight,
       rW = _width * imgWidth,
       rH = _height * imgHeight;
-      console.log('rX, rY, rW, rH', rX, rY, rW, rH);
+    // console.log(
+    //   'x, y, width, height, img width, img height ',
+    //   _x,
+    //   _y,
+    //   _width,
+    //   _height,
+    //   imgWidth,
+    //   imgHeight
+    // );
+    // console.log('rX, rY, rW, rH', rX, rY, rW, rH);
     return { rX, rY, rW, rH };
   };
 
@@ -308,30 +320,25 @@
     reader.readAsDataURL(file);
   }
 
-  let ctx;
-
-  const draw = ({ processFaces = true } = {}) => {
+  const draw = () => {
     if (canvas && loaded && img) {
       ctx = canvas.getContext('2d');
-      console.log('Drawing the image');
+      // console.log('Drawing the image');
       ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
-      drawLogo(ctx);
-      if (processFaces) {
+      if (!faces) {
+        // console.log('CHANGE, grabbing faces here again');
         faces = [];
         detections.forEach((d, i) => {
           const { rX, rY, rW, rH } = d;
           // We add half rW/rH in to get the correct center point, so remove here
-          const x = Math.max(rX - rW / 2, 1), 
-          y = Math.max(rY - rH / 2, 1), 
-          w = Math.max(rW, 1), 
-          h = Math.max(rH,1);
-          console.log('X,Y,W,H', x, y, w, h);
-          const chunk =
-          // ctx.getImageData(10, 10, 20, 20 );
-          ctx.getImageData(x, y,w, h);
-          const face = imagedata_to_image(chunk);
-          console.log('Got face: ', face);
-          faces.push(face);
+          const x = rX - rW / 2,
+            y = rY - rH / 2,
+            w = rW,
+            h = rH;
+          const face = getFace(x, y, w, h);
+          if (face) {
+            faces = [...faces, { src: face, text: new Date().getTime() }];
+          }
         });
       }
 
@@ -345,13 +352,25 @@
           ctx.fill();
         }
       });
+      drawLogo(ctx);
     }
+  };
+
+  const getFace = (x, y, w, h) => {
+    let face;
+    try {
+      const chunk = ctx.getImageData(x, y, w, h);
+      face = imagedata_to_image(chunk);
+    } catch (e) {
+      console.error("Face couldn't be processed", e);
+    }
+    return face;
   };
 
   onMount(() => {
     if (!skipDetection) {
-      console.log(console.log(faceapi.nets));
-      console.log(faceapi.nets);
+      // console.log(console.log(faceapi.nets));
+      // console.log(faceapi.nets);
       faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
     }
   });
@@ -362,6 +381,17 @@
     overflow-x: scroll;
     white-space: nowrap;
     height: 100px;
+  }
+
+  .face_wrapper {
+    display: inline-block;
+  }
+  .text {
+    font-size: 0.6rem;
+    bottom: -20px;
+    display: block;
+    left: 0px;
+    display: none;
   }
   .img {
     width: 100%;
@@ -406,12 +436,15 @@
         <div class="faces">
           {#if faces}
             {#each faces as face, i}
-              <img
-                on:click={() => selectFace(i)}
-                alt="face"
-                class:selected={selected === i}
-                class="avatar"
-                src={face} />
+              <div class="face_wrapper">
+                <img
+                  on:click={() => selectFace(i)}
+                  alt="face"
+                  class:selected={selected === i}
+                  class="avatar"
+                  src={face.src} />
+                <span class="text">{face.text}</span>
+              </div>
             {/each}
           {/if}
         </div>
@@ -521,4 +554,4 @@
   </ModalFooter>
 </Modal>
 
-<img class="img" alt="picture" src={src} bind:this={img} />
+<img class="img" alt="picture" {src} bind:this={img} />

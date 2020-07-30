@@ -2,7 +2,7 @@ const expect = require('expect');
 const { getRelativeBox } = require('../src/dimensions');
 
 const imgDims = { _width: 3024, _height: 4032 };
-const box = {
+const _box = {
   _x: 700.2510538101196,
   _y: 536.7655563354492,
   _width: 340.8471136093139,
@@ -30,7 +30,7 @@ const relativeBox = {
 
 const d = {
   _imageDims: imgDims,
-  _box: box,
+  _box,
 };
 
 describe('#dimensions', () => {

@@ -26,7 +26,8 @@
     "dev": "webpack-dev-server --content-base public",
     "storybook": "start-storybook -p 6006",
     "build-storybook": "build-storybook",
-    "test": "mocha test"
+    "test": "mocha test",
+    "netlify-deploy": "netlify.sh"
   },
   "dependencies": {
     "@cloudflare/wrangler": "^1.10.3",

@@ -25,7 +25,8 @@
     width: 600px;
   }
 .img {
-  width: 480px;
+  width: 403px;
+  height: 302px;
 }
 
 </style>

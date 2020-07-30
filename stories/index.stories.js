@@ -4,6 +4,7 @@ import Button from './button.svelte';
 import Frame from './Frame.svelte';
 import Detections from './Detections.svelte';
 import Detections2 from './Detections2.svelte';
+import Faces from './Faces.svelte';
 
 export default {
   title: 'Button',
@@ -14,6 +15,9 @@ export const DetectionsStory = () => ({
   Component: Detections,
 });
 
+export const FacesStory = () => ({
+  Component: Faces,
+});
 
 export const Detections2Story = () => ({
   Component: Detections2,
