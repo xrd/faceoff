@@ -63,6 +63,7 @@
 <div class="wrapper">
 
   <div class="text">
+    👺
     FaceOffUs.com makes it easy to obscure faces in your pictures.
   </div>
 
