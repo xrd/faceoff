@@ -531,6 +531,7 @@
               <Label for="radius">Faceoff Radius ({radius})</Label>
               <input
                 type="range"
+                disabled={selected < 0}
                 name="radius"
                 id="radius"
                 bind:value={radius}
