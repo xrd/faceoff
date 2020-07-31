@@ -115,7 +115,7 @@
 
   const download = () => {
     // Allow UI to refresh.
-      // Get the scale
+    // Get the scale
     generating = true;
     setTimeout(() => {
       const scale = fullSizeHeight / imgHeight;
@@ -165,10 +165,10 @@
     // In a short while, get the new item, and scroll it into view
     setTimeout(() => {
       const faces = document.getElementsByClassName('avatar');
-      faces[0].scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'end'
-       });
+      faces[0].scrollIntoView({
+        behavior: 'smooth',
+        block: 'end',
+      });
     }, 250);
   };
 
@@ -263,19 +263,27 @@
 
   let processing = false;
 
+  let logs = '';
+  const log = (msg) => {
+    logs = msg + '\n' + logs;
+  };
   const detect = (i) => {
     // console.log('DETECING');
     if (i && i.src && !skipDetection) {
-      // console.log('READY TO PROCESS', i.src);
       processing = true;
-      faceapi.detectAllFaces(img).then((_detections) => {
-        // faces = [];
-        // console.log('Got detections: ', JSON.stringify(_detections));
-        detections = [];
-        removed = [];
-        processing = false;
-        processDetections(_detections);
-      });
+      faceapi
+        .detectAllFaces(img)
+        .then((_detections) => {
+          // faces = [];
+          log(`Got detections: ${_detections.length}`);
+          detections = [];
+          removed = [];
+          processing = false;
+          processDetections(_detections);
+        })
+        .catch((e) => {
+          log(`Error in detectAllFaces ${e.toString}`);
+        });
     }
   };
 
@@ -417,7 +425,19 @@
   let aiLoaded = false;
   let online = true;
 
+  const isDebug = () => {
+    return (
+      document.location.search && document.location.search.includes('debug')
+    );
+  };
+
+  let debug = false;
   onMount(() => {
+    if (isDebug()) {
+      console.log('Debug is on');
+      debug = true;
+    }
+
     if (!skipDetection) {
       // console.log(console.log(faceapi.nets));
       // console.log(faceapi.nets);
@@ -435,6 +455,10 @@
 </script>
 
 <style>
+  .logs {
+    width: 100%;
+  }
+
   .generating {
     width: 4rem;
   }
@@ -593,28 +617,32 @@
           <Col>
             <div class="row">
               <Input bind:files type="file" name="file" id="exampleFile" />
-              <FormText color="muted">
-                Choose an image for processing. This file is NOT sent to any
-                other server; the image never leaves your device.
-                {#if !loaded}
-                  <div class="extra">
-                    FaceOffUS.com does not make any network connections to
-                    analyze your images; you can even turn off your network
-                    while using it. No Google/Facebook tracking/analytics are
-                    used on FaceOffUS.com. A self-hosted Matomo is used for
-                    analytics.
-                  </div>
-                {/if}
-
-                {#if !online}
-                  {#if aiLoaded}
-                    Device is offline, AI is loaded, no problem!
-                  {:else}
-                    AI has not yet been loaded to device, you need to reconnect
-                    and reload this page.
+              {#if debug}
+                <textarea class="logs" bind:value={logs} />
+              {:else}
+                <FormText color="muted">
+                  Choose an image for processing. This file is NOT sent to any
+                  other server; the image never leaves your device.
+                  {#if !loaded}
+                    <div class="extra">
+                      FaceOffUS.com does not make any network connections to
+                      analyze your images; you can even turn off your network
+                      while using it. No Google/Facebook tracking/analytics are
+                      used on FaceOffUS.com. A self-hosted Matomo is used for
+                      analytics.
+                    </div>
                   {/if}
-                {/if}
-              </FormText>
+
+                  {#if !online}
+                    {#if aiLoaded}
+                      Device is offline, AI is loaded, no problem!
+                    {:else}
+                      AI has not yet been loaded to device, you need to
+                      reconnect and reload this page.
+                    {/if}
+                  {/if}
+                </FormText>
+              {/if}
             </div>
 
           </Col>
