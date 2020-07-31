@@ -13,6 +13,7 @@
     ModalBody,
     ModalFooter,
     ModalHeader,
+    Spinner,
   } from 'sveltestrap';
   import { onMount } from 'svelte';
   import * as faceapi from 'face-api.js';
@@ -29,6 +30,7 @@
   let canvasWidth = parseInt(w - 20, 10);
   let canvasHeight = parseInt(h / 2 - 20, 10);
   let canvas;
+  let offscreenCanvas;
   let files;
   let fullSizeHeight, fullSizeWidth;
   let imgHeight, imgWidth;
@@ -109,11 +111,26 @@
     }
   };
 
+  let generating = false;
+
   const download = () => {
-    const link = document.createElement('a');
-    link.download = 'faceoffus.png';
-    link.href = canvas.toDataURL();
-    link.click();
+    // Allow UI to refresh.
+      // Get the scale
+    generating = true;
+    setTimeout(() => {
+      const scale = fullSizeHeight / imgHeight;
+      draw({
+        scale,
+        _canvas: offscreenCanvas,
+        h: fullSizeHeight,
+        w: fullSizeWidth,
+      });
+      const link = document.createElement('a');
+      link.download = 'faceoffus.png';
+      link.href = offscreenCanvas.toDataURL();
+      link.click();
+      generating = false;
+    }, 250);
   };
 
   const colorChanged = (c) => {
@@ -146,9 +163,9 @@
     draw();
 
     // In a short while, get the new item, and scroll it into view
-    setTimeout( () => {
+    setTimeout(() => {
       const faces = document.getElementsByClassName('avatar');
-      faces[0].scrollIntoView({behavior: 'smooth'});
+      faces[0].scrollIntoView({ behavior: 'smooth' });
     }, 250);
   };
 
@@ -285,13 +302,16 @@
     return { rX, rY, rW, rH };
   };
 
-  const drawLogo = (ctx) => {
+  const drawLogo = (ctx, _canvas, scale) => {
     ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText('👺faceoffUS.com', canvas.width - 170, canvas.height - 5);
+    const factoredScale = scale > 5 ? 5 : 1;
+    ctx.font = `${factoredScale * 20}px Arial`;
+    const x = _canvas.width - factoredScale * 170;
+    const y = _canvas.height - factoredScale * 5;
+    console.log('Logo coordinates:', x, y);
+    ctx.fillText('👺faceoffUS.com', x, y);
     ctx.fillStyle = 'red';
-    ctx.fillText('👺faceoffUS.com', canvas.width - 171, canvas.height - 4);
-    ctx.font = '20px Arial';
+    ctx.fillText('👺faceoffUS.com', x - 2, y - 2);
   };
 
   let date = '1776:07:04';
@@ -336,11 +356,19 @@
     reader.readAsDataURL(file);
   }
 
-  const draw = () => {
-    if (canvas && loaded && img) {
-      ctx = canvas.getContext('2d');
+  const draw = (
+    { _canvas = canvas, w = imgWidth, h = imgHeight, scale = 1 } = {
+      _canvas: canvas,
+      w: imgWidth,
+      h: imgHeight,
+      scale: 1,
+    }
+  ) => {
+    if (_canvas && loaded && img) {
+      console.log('Scale is:', scale);
+      ctx = _canvas.getContext('2d');
       // console.log('Drawing the image');
-      ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+      ctx.drawImage(img, 0, 0, w, h);
       if (!faces || faces.length === 0) {
         detections.forEach((d, i) => {
           const { rX, rY, rW, rH } = d;
@@ -357,16 +385,18 @@
       }
 
       detections.forEach((d, i) => {
+        // console.log('Checking detection');
         if (!removed[i]) {
+          // console.log('Drawing detection', d);
           const { rX, rY, rW, rH, radius } = d;
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(rX, rY, radius, 0, 2 * Math.PI);
+          ctx.arc(scale * rX, scale * rY, scale * radius, 0, 2 * Math.PI);
           ctx.stroke();
           ctx.fill();
         }
       });
-      drawLogo(ctx);
+      drawLogo(ctx, _canvas, scale);
     }
   };
 
@@ -381,23 +411,42 @@
     return face;
   };
 
+  let aiLoaded = false;
+  let online = true;
+
   onMount(() => {
     if (!skipDetection) {
       // console.log(console.log(faceapi.nets));
       // console.log(faceapi.nets);
       faceapi.nets.ssdMobilenetv1.loadFromUri('/weights');
+      aiLoaded = true;
     }
+
+    window.addEventListener('offline', () => {
+      online = false;
+    });
+    window.addEventListener('online', () => {
+      online = true;
+    });
   });
 </script>
 
 <style>
+  .generating {
+    width: 4rem;
+  }
 
+  .offscreen {
+    position: absolute;
+    left: 3000px;
+    right: 3000px;
+  }
   .canvas {
-      padding-left: 0;
-      padding-right: 0;
-      margin-left: auto;
-      margin-right: auto;
-      display: block;
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
   }
   .faces {
     overflow-x: scroll;
@@ -460,33 +509,29 @@
 
 <svelte:head>
   <!-- https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css -->
-  <link
-    rel="stylesheet"
-    href="bootstrap.min.css" />
+  <link rel="stylesheet" href="bootstrap.min.css" />
 </svelte:head>
 
 <div class="container">
   <div style="height: {h / 2 - 5}px;">
     <Row>
       <Col>
-      {#if loaded}
-        <canvas
-          class="canvas"
-          on:click={canvasClick}
-          width={imgWidth}
-          height={imgHeight}
-          bind:this={canvas} />
-      {/if}
-      {#if processing}
-      <div class="processing">Analyzing image for faces...</div>
-      {/if}
-      {#if !loaded && !canvas}
-  
-        <Introduction/>
-        
-      {/if}
+        {#if loaded}
+          <canvas
+            class="canvas"
+            on:click={canvasClick}
+            width={imgWidth}
+            height={imgHeight}
+            bind:this={canvas} />
+        {/if}
+        {#if processing}
+          <div class="processing">Analyzing image for faces...</div>
+        {/if}
+        {#if !loaded && !canvas}
+          <Introduction />
+        {/if}
       </Col>
-      </Row>
+    </Row>
   </div>
 
   <div style="height: {h / 2 - 5}px;">
@@ -494,68 +539,77 @@
       <Col>
 
         {#if loaded}
-        <Row>
-          <div class="faces_wrapper">
-            <div class="faces">
-              {#if faces}
-                {#each faces as face, i}
-                  <div class="face_wrapper">
-                    <img
-                      on:click={() => selectFace(i)}
-                      alt="face"
-                      class:selected={selected === i}
-                      class="avatar"
-                      src={face.src} />
-                    <span class="text">{face.text}</span>
-                  </div>
-                {/each}
-              {/if}
+          <Row>
+            <div class="faces_wrapper">
+              <div class="faces">
+                {#if faces}
+                  {#each faces as face, i}
+                    <div class="face_wrapper">
+                      <img
+                        on:click={() => selectFace(i)}
+                        alt="face"
+                        class:selected={selected === i}
+                        class="avatar"
+                        src={face.src} />
+                      <span class="text">{face.text}</span>
+                    </div>
+                  {/each}
+                {/if}
+              </div>
             </div>
-          </div>
-        </Row>
+          </Row>
 
-        <Row>
-          <Col>
-            <div class="row">
-              <Label for="exampleColor">Faceoff Color</Label>
-              <Input
-                type="color"
-                name="color"
-                id="exampleColor"
-                bind:value={color}
-                placeholder="color placeholder" />
-            </div>
-          </Col>
-          <Col>
-            <div class="row">
-              <Label for="radius">Faceoff Radius ({radius})</Label>
-              <input
-                type="range"
-                disabled={selected < 0}
-                name="radius"
-                id="radius"
-                bind:value={radius}
-                min="0"
-                max="128" />
-            </div>
-          </Col>
-        </Row>
+          <Row>
+            <Col>
+              <div class="row">
+                <Label for="exampleColor">Faceoff Color</Label>
+                <Input
+                  type="color"
+                  name="color"
+                  id="exampleColor"
+                  bind:value={color}
+                  placeholder="color placeholder" />
+              </div>
+            </Col>
+            <Col>
+              <div class="row">
+                <Label for="radius">Faceoff Radius ({radius})</Label>
+                <input
+                  type="range"
+                  disabled={selected < 0}
+                  name="radius"
+                  id="radius"
+                  bind:value={radius}
+                  min="0"
+                  max="128" />
+              </div>
+            </Col>
+          </Row>
         {/if}
         <Row>
           <Col>
             <div class="row">
               <Input bind:files type="file" name="file" id="exampleFile" />
               <FormText color="muted">
-                Choose an image for processing. This file is NOT sent to any other
-                server; the image never leaves your device.
+                Choose an image for processing. This file is NOT sent to any
+                other server; the image never leaves your device.
                 {#if !loaded}
-                <div class="extra">
-                FaceOffUS.com does not
-                make any network connections to analyze your images; you
-                can even turn off your network while using it.
-                No Google/Facebook tracking/analytics are used on FaceOffUS.com.
-                A self-hosted Matomo is used for analytics.
-                </div>
+                  <div class="extra">
+                    FaceOffUS.com does not make any network connections to
+                    analyze your images; you can even turn off your network
+                    while using it. No Google/Facebook tracking/analytics are
+                    used on FaceOffUS.com. A self-hosted Matomo is used for
+                    analytics.
+                  </div>
+                {/if}
+
+                {#if !online}
+                  {#if aiLoaded}
+                    Device is offline, AI is loaded, no problem!
+                  {:else}
+                    AI has not yet been loaded to device, you need to reconnect
+                    and reload this page.
+                  {/if}
                 {/if}
               </FormText>
             </div>
@@ -563,15 +617,21 @@
           </Col>
         </Row>
         {#if loaded}
-        <Row>
-          <Col>
-            <div class="row">
-              <Button block color="primary" on:click={download}>
-                Download Modified Image
-              </Button>
-            </div>
-          </Col>
-        </Row>
+          <Row>
+            <Col>
+              <div class="row">
+                <Button
+                  block
+                  disabled={generating}
+                  color="primary"
+                  on:click={download}>
+                  {#if generating}
+                    Generating image, please wait...
+                  {:else}Download Modified Image{/if}
+                </Button>
+              </div>
+            </Col>
+          </Row>
         {/if}
       </Col>
     </Row>
@@ -601,7 +661,7 @@
       </Col> -->
     </Row>
   </div>
-  </div>
+</div>
 
 <Modal isOpen={open} {toggle}>
   <ModalHeader {toggle}>Purchase Yearly Subscription</ModalHeader>
@@ -634,3 +694,9 @@
 </Modal>
 
 <img class="img" alt="picture" {src} bind:this={img} />
+
+<canvas
+  class="offscreen"
+  width={fullSizeWidth}
+  height={fullSizeHeight}
+  bind:this={offscreenCanvas} />
