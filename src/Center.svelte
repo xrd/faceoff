@@ -165,7 +165,10 @@
     // In a short while, get the new item, and scroll it into view
     setTimeout(() => {
       const faces = document.getElementsByClassName('avatar');
-      faces[0].scrollIntoView({ behavior: 'smooth' });
+      faces[0].scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'end'
+       });
     }, 250);
   };
 
@@ -309,9 +312,9 @@
     const x = _canvas.width - factoredScale * 170;
     const y = _canvas.height - factoredScale * 5;
     console.log('Logo coordinates:', x, y);
-    ctx.fillText('👺faceoffUS.com', x, y);
+    ctx.fillText('👺FaceOffUs.com', x, y);
     ctx.fillStyle = 'red';
-    ctx.fillText('👺faceoffUS.com', x - 2, y - 2);
+    ctx.fillText('👺FaceOffUs.com', x - 2, y - 2);
   };
 
   let date = '1776:07:04';
