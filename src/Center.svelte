@@ -391,11 +391,19 @@
 </script>
 
 <style>
+
+  .canvas {
+      padding-left: 0;
+      padding-right: 0;
+      margin-left: auto;
+      margin-right: auto;
+      display: block;
+  }
   .faces {
     overflow-x: scroll;
     white-space: nowrap;
     height: 100px;
-    width: 100%;
+    max-width: 800px;
   }
 
   .face_wrapper {
@@ -451,9 +459,10 @@
 </style>
 
 <svelte:head>
+  <!-- https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css -->
   <link
     rel="stylesheet"
-    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+    href="bootstrap.min.css" />
 </svelte:head>
 
 <div class="container">
@@ -462,6 +471,7 @@
       <Col>
       {#if loaded}
         <canvas
+          class="canvas"
           on:click={canvasClick}
           width={imgWidth}
           height={imgHeight}

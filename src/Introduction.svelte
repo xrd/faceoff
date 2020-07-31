@@ -13,7 +13,6 @@
     open = !open;
   }
 
-  $: console.log('Open is: ', open);
 </script>
 
 <style>
