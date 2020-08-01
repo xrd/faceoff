@@ -119,8 +119,9 @@
     generating = true;
     setTimeout(() => {
       const scale = fullSizeHeight / imgHeight;
+      log(`Scale from full / img is: ${scale}`);
       draw({
-        scale,
+        _scale: scale,
         _canvas: offscreenCanvas,
         h: fullSizeHeight,
         w: fullSizeWidth,
@@ -265,8 +266,18 @@
 
   let logs = '';
   const log = (msg) => {
+    console.log(msg);
     logs = msg + '\n' + logs;
   };
+
+  const handleDetections = (_detections) => {
+    log(`Got detections: ${_detections.length}`);
+    detections = [];
+    removed = [];
+    processing = false;
+    processDetections(_detections);
+  };
+
   const detect = (i) => {
     // console.log('DETECING');
     if (i && i.src && !skipDetection) {
@@ -275,11 +286,20 @@
         .detectAllFaces(img)
         .then((_detections) => {
           // faces = [];
-          log(`Got detections: ${_detections.length}`);
-          detections = [];
-          removed = [];
-          processing = false;
-          processDetections(_detections);
+          if (_detections.length > 0) {
+            handleDetections(_detections);
+            return;
+          } else {
+            log('Trying to process again');
+            // Try again.
+            return faceapi
+              .detectAllFaces(img);
+          }
+        })
+        .then( secondTry => {
+          if (secondTry && secondTry.length > 0 ) {
+            handleDetections(secondTry);
+          }
         })
         .catch((e) => {
           log(`Error in detectAllFaces ${e.toString}`);
@@ -368,17 +388,16 @@
   }
 
   const draw = (
-    { _canvas = canvas, w = imgWidth, h = imgHeight, scale = 1 } = {
+    { _canvas = canvas, w = imgWidth, h = imgHeight, _scale = 1 } = {
       _canvas: canvas,
       w: imgWidth,
       h: imgHeight,
-      scale: 1,
+      _scale: 1,
     }
   ) => {
     if (_canvas && loaded && img) {
-      console.log('Scale is:', scale);
       ctx = _canvas.getContext('2d');
-      // console.log('Drawing the image');
+      log(`Drawing the image (scale): ${_scale}`);
       ctx.drawImage(img, 0, 0, w, h);
       if (!faces || faces.length === 0) {
         detections.forEach((d, i) => {
@@ -402,12 +421,12 @@
           const { rX, rY, rW, rH, radius } = d;
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(scale * rX, scale * rY, scale * radius, 0, 2 * Math.PI);
+          ctx.arc(_scale * rX, _scale * rY, _scale * radius, 0, 2 * Math.PI);
           ctx.stroke();
           ctx.fill();
         }
       });
-      drawLogo(ctx, _canvas, scale);
+      drawLogo(ctx, _canvas, _scale);
     }
   };
 
