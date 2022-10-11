@@ -1,4 +1,15 @@
+## Introduction
+
 ![Face Off](faceoff.png)
+
+## UI
+
+![Face Off](faceoff-ui.png)
+
+
+## Details
+
+This is a svelte app that wraps the face-api-js code and permits you to easily add circles around faces. 
 
 ## Caveats
 
