@@ -1,3 +1,5 @@
+![Face Off](faceoff.png)
+
 ## Caveats
 
 I recall that some devices, like iOS (?) might not load the libraries correctly, so I wrote some retry functions. YMMV.
